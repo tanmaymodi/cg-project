@@ -1,0 +1,368 @@
+import math
+import optuna
+
+# Define constants
+MAX_STEPS = 1000
+MIN_SPEED = 0.1
+
+def reward_function(params):
+    '''
+    Custom reward function for AWS DeepRacer.
+    
+    params: Dictionary containing information from the simulation
+    
+    Returns:
+    reward: Calculated reward value
+    '''
+    # Read input parameters
+    all_wheels_on_track = params['all_wheels_on_track']
+    speed = params['speed']
+    progress = params['progress']
+    track_width = params['track_width']
+    distance_from_center = params['distance_from_center']
+    steering = abs(params['steering_angle']) # Convert to absolute to make it symmetric
+    
+    # Initialize reward
+    reward = 1e-3
+    
+    # Reward for staying on the track
+    if all_wheels_on_track:
+        reward += 1.0
+    
+    # Penalize if too far from the center
+    reward -= 0.5 * distance_from_center / track_width
+    
+    # Encourage higher speed
+    reward += 0.3 * speed / params['max_speed']
+    
+    # Penalize for high steering angles
+    reward -= 0.3 * steering
+    
+    # Reward for progress made
+    reward += 2 * progress / 100.0
+    
+    # Additional penalties
+    if params['steps'] >= MAX_STEPS:
+        reward -= 10.0
+    if speed < MIN_SPEED:
+        reward -= 1.0
+    
+    return float(reward)
+
+def objective(trial):
+    # Hyperparameter search space
+    steering_penalty = trial.suggest_float('steering_penalty', 0.1, 1.0)
+    speed_reward_factor = trial.suggest_float('speed_reward_factor', 0.1, 1.0)
+    progress_reward_factor = trial.suggest_float('progress_reward_factor', 1.0, 5.0)
+    
+    # Define reward function with hyperparameters
+    def hyper_reward(params):
+        base_reward = reward_function(params)
+        hyper_reward = (
+            base_reward -
+            steering_penalty * abs(params['steering_angle']) +
+            speed_reward_factor * params['speed'] / params['max_speed'] +
+            progress_reward_factor * params['progress'] / 100.0
+        )
+        return hyper_reward
+    
+    # Optimize the model using the hyperparameters
+    study = optuna.create_study(direction='maximize')
+    study.optimize(hyper_reward, n_trials=50)
+    
+    return study.best_value
+
+if __name__ == "__main__":
+    study = optuna.create_study(direction='maximize')
+    study.optimize(objective, n_trials=100)
+    
+    best_params = study.best_params
+    print("Best Hyperparameters:", best_params)
+
+
+
+
+_________________________
+
+
+
+
+
+def reward_function(params):
+    '''
+    Custom reward function for AWS DeepRacer on Rouge Raceway track.
+    
+    params: Dictionary containing information from the simulation
+    
+    Returns:
+    reward: Calculated reward value
+    '''
+    # Read input parameters
+    all_wheels_on_track = params['all_wheels_on_track']
+    speed = params['speed']
+    progress = params['progress']
+    track_width = params['track_width']
+    distance_from_center = params['distance_from_center']
+    steering = abs(params['steering_angle']) # Convert to absolute to make it symmetric
+    waypoints = params['waypoints']
+    closest_waypoints = params['closest_waypoints']
+    
+    # Initialize reward
+    reward = 1e-3
+    
+    # Reward for staying on the track
+    if all_wheels_on_track:
+        reward += 1.0
+    
+    # Penalize if too far from the center
+    reward -= 0.5 * distance_from_center / track_width
+    
+    # Encourage higher speed
+    reward += 0.3 * speed / params['max_speed']
+    
+    # Penalize for high steering angles
+    reward -= 0.3 * steering
+    
+    # Reward for progress made
+    reward += 2 * progress / 100.0
+    
+    # Calculate distance to the next waypoint
+    next_waypoint = waypoints[closest_waypoints[1]]
+    distance_to_next_waypoint = math.sqrt(
+        (params['x'] - next_waypoint[0])**2 + (params['y'] - next_waypoint[1])**2)
+    
+    # Encourage following waypoints
+    reward += 1.0 / distance_to_next_waypoint
+    
+    return float(reward)
+
+
+
+___________________________
+
+
+import math
+import optuna
+
+# Define constants
+MAX_STEPS = 1000
+MIN_SPEED = 0.1
+
+def reward_function(params):
+    '''
+    Custom reward function for AWS DeepRacer.
+    
+    params: Dictionary containing information from the simulation
+    
+    Returns:
+    reward: Calculated reward value
+    '''
+    # Read input parameters
+    all_wheels_on_track = params['all_wheels_on_track']
+    speed = params['speed']
+    progress = params['progress']
+    track_width = params['track_width']
+    distance_from_center = params['distance_from_center']
+    steering = abs(params['steering_angle']) # Convert to absolute to make it symmetric
+    waypoints = params['waypoints']
+    closest_waypoints = params['closest_waypoints']
+    
+    # Initialize reward
+    reward = 1e-3
+    
+    # Reward for staying on the track
+    if all_wheels_on_track:
+        reward += 1.0
+    
+    # Penalize if too far from the center
+    reward -= 0.5 * distance_from_center / track_width
+    
+    # Encourage higher speed
+    reward += 0.3 * speed / params['max_speed']
+    
+    # Penalize for high steering angles
+    reward -= 0.3 * steering
+    
+    # Reward for progress made
+    reward += 2 * progress / 100.0
+    
+    # Calculate distance to the next waypoint
+    next_waypoint = waypoints[closest_waypoints[1]]
+    distance_to_next_waypoint = math.sqrt(
+        (params['x'] - next_waypoint[0])**2 + (params['y'] - next_waypoint[1])**2)
+    
+    # Encourage following waypoints
+    reward += 1.0 / distance_to_next_waypoint
+    
+    return float(reward)
+
+def objective(trial):
+    # Hyperparameter search space
+    steering_penalty = trial.suggest_float('steering_penalty', 0.1, 1.0)
+    speed_reward_factor = trial.suggest_float('speed_reward_factor', 0.1, 1.0)
+    waypoint_reward_factor = trial.suggest_float('waypoint_reward_factor', 1.0, 5.0)
+    
+    # Optimize the model using the hyperparameters
+    study = optuna.create_study(direction='maximize')
+    study.optimize(lambda trial: -objective_reward(
+        trial, steering_penalty, speed_reward_factor, waypoint_reward_factor), n_trials=50)
+    
+    return study.best_value
+
+def objective_reward(trial, steering_penalty, speed_reward_factor, waypoint_reward_factor):
+    # Define reward function with hyperparameters
+    def hyper_reward(params):
+        base_reward = reward_function(params)
+        distance_to_next_waypoint = math.sqrt(
+            (params['x'] - params['waypoints'][params['closest_waypoints'][1]][0])**2 +
+            (params['y'] - params['waypoints'][params['closest_waypoints'][1]][1])**2)
+        
+        hyper_reward = (
+            base_reward -
+            steering_penalty * abs(params['steering_angle']) +
+            speed_reward_factor * params['speed'] / params['max_speed'] +
+            waypoint_reward_factor / distance_to_next_waypoint
+        )
+        return hyper_reward
+    
+    # Optimize the model using the hyperparameters
+    return hyper_reward
+
+if __name__ == "__main__":
+    study = optuna.create_study(direction='maximize')
+    study.optimize(objective, n_trials=100)
+    
+    best_params = study.best_params
+    print("Best Hyperparameters:", best_params)
+
+
+
+_____________________________________________________________
+
+def reward_function(params):
+    all_wheels_on_track = params['all_wheels_on_track']
+    speed = params['speed']
+    progress = params['progress']
+    distance_from_center = params['distance_from_center']
+    steering = abs(params['steering_angle'])
+    waypoints = params['waypoints']
+    closest_waypoints = params['closest_waypoints']
+    
+    # Initialize reward
+    reward = 1e-3
+    
+    # Reward for staying on the track and making progress
+    if all_wheels_on_track and progress > 0:
+        reward += 1.0
+    
+    # Penalize for going off track
+    if not all_wheels_on_track:
+        reward -= 1.0
+    
+    # Penalize for driving too slowly
+    if speed < 0.5:
+        reward -= 0.5
+    
+    # Encourage following the center line
+    reward -= 0.5 * distance_from_center
+    
+    # Penalize for sharp turns
+    reward -= 0.5 * steering
+    
+    # Encourage staying near the middle of the track
+    reward += 0.5 * (1.0 - abs(params['track_width'] / 2 - distance_from_center))
+    
+    # Reward for following waypoints
+    reward += 0.5 * (1.0 - closest_waypoints[0] / len(waypoints))
+    
+    return reward
+
+
+_________________________________________
+
+
+def reward_function(params):
+    all_wheels_on_track = params['all_wheels_on_track']
+    speed = params['speed']
+    progress = params['progress']
+    distance_from_center = params['distance_from_center']
+    steering = abs(params['steering_angle'])
+    waypoints = params['waypoints']
+    closest_waypoints = params['closest_waypoints']
+    track_width = params['track_width']
+    
+    # Initialize reward
+    reward = 1e-3
+    
+    # Reward for staying on the track and making progress
+    if all_wheels_on_track and progress > 0:
+        reward += 1.0
+    
+    # Penalize for going off track
+    if not all_wheels_on_track:
+        reward -= 1.0
+    
+    # Penalize for driving too slowly
+    if speed < 0.5:
+        reward -= 0.5
+    
+    # Encourage following the center line
+    reward += 0.5 * (1.0 - distance_from_center / (track_width / 2))
+    
+    # Penalize for sharp turns
+    reward -= 0.5 * steering
+    
+    # Encourage smooth driving by penalizing jerk
+    reward += 0.2 * (1.0 - params['jerk'] / 5.0)
+    
+    # Reward for making progress through waypoints
+    reward += 0.2 * (1.0 - closest_waypoints[0] / len(waypoints))
+    
+    return reward
+
+__________________________________________
+
+
+def reward_function(params):
+    all_wheels_on_track = params['all_wheels_on_track']
+    speed = params['speed']
+    progress = params['progress']
+    distance_from_center = params['distance_from_center']
+    steering = abs(params['steering_angle'])
+    waypoints = params['waypoints']
+    closest_waypoints = params['closest_waypoints']
+    track_width = params['track_width']
+    
+    # Initialize reward
+    reward = 1e-3
+    
+    # Reward for staying on the track and making progress
+    if all_wheels_on_track and progress > 0:
+        reward += 1.0
+    
+    # Penalize for going off track
+    if not all_wheels_on_track:
+        reward -= 5.0
+    
+    # Penalize for driving too slowly
+    if speed < 1.0:
+        reward -= 1.0
+    
+    # Encourage staying near the center
+    reward += 0.5 * (1.0 - distance_from_center / (track_width / 2))
+    
+    # Penalize for sharp turns
+    reward -= 0.5 * steering
+    
+    # Encourage smooth driving by penalizing jerk
+    reward += 0.2 * (1.0 - params['jerk'] / 5.0)
+    
+    # Reward for making progress through waypoints
+    reward += 0.2 * (1.0 - closest_waypoints[0] / len(waypoints))
+    
+    return reward
+
+
+
+
+
